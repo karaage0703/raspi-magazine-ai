@@ -43,67 +43,58 @@ if __name__ == '__main__':
     max_count = 0
     count = 0
     stream = PiRGBArray(camera)
-    while True:
-        camera.capture(stream, 'bgr', use_video_port=True)
-        key = cv2.waitKey(1)
-        if key == 27: # when ESC key is pressed break
-            break
+    try:
+        while True:
+            roomba.move(0.0, np.deg2rad(0.0)) # stop
+            sleep(1.0)
 
-        count += 1
-        if count > max_count:
-            X = []
-            img_org = stream.array
-            img = cv2.resize(img_org, (64, 64))
-            img = img_to_array(img)
-            X.append(img)
-            X = np.asarray(X)
-            X = X/255.0
-            start = time.time()
-            preds = model_pred.predict(X)
-            elapsed_time = time.time() - start
+            camera.capture(stream, 'bgr', use_video_port=True)
 
-            pred_label = ""
+            count += 1
+            if count > max_count:
+                X = []
+                img_org = stream.array
+                img = cv2.resize(img_org, (64, 64))
+                img = img_to_array(img)
+                X.append(img)
+                X = np.asarray(X)
+                X = X/255.0
+                start = time.time()
+                preds = model_pred.predict(X)
+                elapsed_time = time.time() - start
 
-            label_num = 0
-            tmp_max_pred = 0
-            print(preds)
-            for i in preds[0]:
-                if i > tmp_max_pred:
-                    pred_label = labels[label_num]
-                    tmp_max_pred = i
-                label_num += 1
+                pred_label = ""
 
-            # Put speed
-            speed_info = '%s: %f' % ('speed=', elapsed_time)
-            # print(speed_info)
-            cv2.putText(img_org, speed_info , (10,50), \
-              cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                label_num = 0
+                tmp_max_pred = 0
+                # print(preds)
+                for i in preds[0]:
+                    if i > tmp_max_pred:
+                        pred_label = labels[label_num]
+                        tmp_max_pred = i
+                    label_num += 1
 
-            # Put label
-            cv2.putText(img_org, pred_label, (10,100), \
-              cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                count = 0
 
-            cv2.imshow('keras-pi inspector', img_org)
-            count = 0
+                # Control roomba
+                if pred_label == 'go':
+                    print('go straight')
+                    roomba.move(0.2, np.deg2rad(0.0)) # go straight
+                    sleep(1.0)
 
-            # Control roomba
-            if pred_label == 'go':
-                print('go straight')
-                roomba.move(0.2, np.deg2rad(0.0)) # go straight
-                sleep(5.0)
-
-            else:
-                if random.randint(0,1):
-                    print('turn right')
-                    roomba.move(0, np.deg2rad(-20))
-                    sleep(5.0)
                 else:
-                    print('turn left')
-                    roomba.move(0, np.deg2rad(20))
-                    sleep(5.0)
+                    if random.randint(0,1):
+                        print('turn right')
+                        roomba.move(0, np.deg2rad(-20)) # turn right
+                        sleep(1.0)
+                    else:
+                        print('turn left')
+                        roomba.move(0, np.deg2rad(20)) # turn left
+                        sleep(1.0)
 
-        stream.seek(0)
-        stream.truncate()
+            stream.seek(0)
+            stream.truncate()
 
-    camera.close()
-    cv2.destroyAllWindows()
+    except KeyboardInterrupt:
+        print('Ctrl+C interrupted')
+        camera.close()
